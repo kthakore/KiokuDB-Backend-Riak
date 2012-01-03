@@ -1,7 +1,101 @@
 package KiokuDB::Backend::Riak;
+BEGIN{
+    $KiokuDB::Backend::Riak::VERSION = '0.03';    
+}
 
-use warnings;
-use strict;
+use Moose;
+use namespace::clean -except => 'meta';
+
+with qw(
+         KiokuDB::Backend
+         KiokuDB::Backend::Serialize::JSPON
+         KiokuDB::Backend::Role::Clear
+         KiokuDB::Backend::Role::Scan
+         KiokuDB::Backend::Role::Query::Simple
+         KiokuDB::Backend::Role::Query
+);
+
+use Net::Riak; 
+use Data::Stream::Bulk::Callback ();
+
+has [qw/host port bucket_name/]  => (
+    is => 'ro',
+    isa => 'Str'
+);
+
+has options => (
+    is => 'ro',
+    isa => 'HashRef'
+);
+
+has bucket => (
+    isa => 'Net::Riak::Bucket',
+    is => 'ro',
+    lazy => 1,
+    builder => '_build_bucket'
+
+);
+
+has '+id_field' => ( default => 'id' );
+has '+class_field' => ( default => 'class' );
+has '+class_meta_field' => ( default => 'class_meta' );
+
+sub _build_bucket {
+    my ($self) = @_;
+    my $host = $self->host || 'localhost';
+    my $port = $self->port || 8091; 
+    my $bucket = $self->bucket_name;
+    my $options = $self->options; 
+
+    my $client = Net::Riak->new( host => 'http://'.$host.':'.$port, %$options );
+
+    return $client->bucket($bucket); 
+
+}
+
+sub BUILD {
+    my ($self) = shift;
+    $self->bucket;
+}
+
+sub clear  {
+    my $self = shift;
+
+   my $keys =  $self->bucket->get_keys();
+
+   foreach( @{$keys} )
+   {
+
+        $self->bucket->delete_obj( $_ );
+   }
+
+}
+
+
+sub all_entries {
+    my $self = shift;
+
+    
+    return; 
+}
+
+sub insert {} 
+
+sub get {}
+
+sub get_entry {}
+
+sub delete {} 
+
+sub simple_search {}
+
+sub search {}
+
+sub exists {}
+
+sub serialize {} 
+
+sub deserialize {}  
 
 =head1 NAME
 
@@ -34,19 +128,29 @@ if you don't export anything, such as for a purely object-oriented module.
 
 =head1 SUBROUTINES/METHODS
 
-=head2 function1
+=head2 exists
 
-=cut
+=head2 insert 
 
-sub function1 {
-}
+=head2 clear 
 
-=head2 function2
+=head2 all_entries 
 
-=cut
+=head2 get 
 
-sub function2 {
-}
+=head2 get_entry  
+
+=head2 delete 
+
+=head2 serialize 
+
+=head2 deserialize
+
+=head2 search 
+
+=head2 simple_search
+
+=head2 BUILD
 
 =head1 AUTHOR
 
