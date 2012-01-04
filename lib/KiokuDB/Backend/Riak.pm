@@ -1,55 +1,59 @@
 package KiokuDB::Backend::Riak;
-BEGIN{
-    $KiokuDB::Backend::Riak::VERSION = '0.03';    
+
+BEGIN {
+    $KiokuDB::Backend::Riak::VERSION = '0.03';
 }
 
 use Moose;
+use Data::Dumper;
+use Try::Tiny;
 use namespace::clean -except => 'meta';
 
 with qw(
-         KiokuDB::Backend
-         KiokuDB::Backend::Serialize::JSPON
-         KiokuDB::Backend::Role::Clear
-         KiokuDB::Backend::Role::Scan
-         KiokuDB::Backend::Role::Query::Simple
-         KiokuDB::Backend::Role::Query
+  KiokuDB::Backend
+  KiokuDB::Backend::Serialize::JSPON
+  KiokuDB::Backend::Role::Clear
+  KiokuDB::Backend::Role::Scan
+  KiokuDB::Backend::Role::Query::Simple
+  KiokuDB::Backend::Role::Query
 );
 
-use Net::Riak; 
+use Net::Riak;
 use Data::Stream::Bulk::Callback ();
 
-has [qw/host port bucket_name/]  => (
-    is => 'ro',
+has [qw/host port bucket_name/] => (
+    is  => 'ro',
     isa => 'Str'
 );
 
 has options => (
-    is => 'ro',
+    is  => 'ro',
     isa => 'HashRef'
 );
 
 has bucket => (
-    isa => 'Net::Riak::Bucket',
-    is => 'ro',
-    lazy => 1,
+    isa     => 'Net::Riak::Bucket',
+    is      => 'ro',
+    lazy    => 1,
     builder => '_build_bucket'
 
 );
 
-has '+id_field' => ( default => 'id' );
-has '+class_field' => ( default => 'class' );
+has '+id_field'         => ( default => 'id' );
+has '+class_field'      => ( default => 'class' );
 has '+class_meta_field' => ( default => 'class_meta' );
 
 sub _build_bucket {
     my ($self) = @_;
     my $host = $self->host || 'localhost';
-    my $port = $self->port || 8091; 
-    my $bucket = $self->bucket_name;
-    my $options = $self->options; 
+    my $port = $self->port || 8091;
+    my $bucket  = $self->bucket_name;
+    my $options = $self->options;
 
-    my $client = Net::Riak->new( host => 'http://'.$host.':'.$port, %$options );
+    my $client =
+      Net::Riak->new( host => 'http://' . $host . ':' . $port, %$options );
 
-    return $client->bucket($bucket); 
+    return $client->bucket($bucket);
 
 }
 
@@ -58,44 +62,54 @@ sub BUILD {
     $self->bucket;
 }
 
-sub clear  {
+sub clear {
     my $self = shift;
-
-   my $keys =  $self->bucket->get_keys();
-
-   foreach( @{$keys} )
-   {
-
-        $self->bucket->delete_obj( $_ );
-   }
-
+    my $keys = $self->bucket->get_keys();
+    foreach ( @{$keys} ) {
+        $self->bucket->delete_obj($_);
+    }
 }
-
 
 sub all_entries {
     my $self = shift;
 
-    
-    return; 
+    return;
 }
 
-sub insert {} 
+sub insert { 
+    my ($self, @entries) = @_;
 
-sub get {}
+    my $bucket = $self->bucket;
 
-sub get_entry {}
+    for my $entry (@entries) {
+        my $collapsed = $self->serialize( $entry );
+        my $id = delete $collapsed->{id};
 
-sub delete {} 
+        my $obj = $bucket->get( $id );
+        $obj->data( $collapsed );
+        $obj->store(); 
 
-sub simple_search {}
+    }
+}
 
-sub search {}
+sub get { }
 
-sub exists {}
+sub get_entry { }
 
-sub serialize {} 
+sub delete { }
 
-sub deserialize {}  
+sub simple_search { }
+
+sub search { }
+
+sub exists { }
+
+sub serialize { 
+    my $self = shift;
+       return $self->collapse_jspon(@_);
+    }
+
+sub deserialize { }
 
 =head1 NAME
 
@@ -108,7 +122,6 @@ Version 0.01
 =cut
 
 our $VERSION = '0.01';
-
 
 =head1 SYNOPSIS
 
@@ -211,4 +224,4 @@ See http://dev.perl.org/licenses/ for more information.
 
 =cut
 
-1; # End of KiokuDB::Backend::Riak
+1;    # End of KiokuDB::Backend::Riak
