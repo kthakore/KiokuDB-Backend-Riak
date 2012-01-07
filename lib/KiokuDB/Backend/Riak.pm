@@ -7,6 +7,9 @@ BEGIN {
 use Moose;
 use Data::Dumper;
 use Try::Tiny;
+use Net::Riak;
+use Data::Stream::Bulk::Callback ();
+
 use namespace::clean -except => 'meta';
 
 with qw(
@@ -17,9 +20,6 @@ with qw(
   KiokuDB::Backend::Role::Query::Simple
   KiokuDB::Backend::Role::Query
 );
-
-use Net::Riak;
-use Data::Stream::Bulk::Callback ();
 
 has [qw/host port bucket_name/] => (
     is  => 'ro',
@@ -66,7 +66,7 @@ sub clear {
     my $self = shift;
     my $keys = $self->bucket->get_keys();
     foreach ( @{$keys} ) {
-        $self->bucket->delete_obj($_);
+        $self->bucket->delete_object($_);
     }
 }
 
@@ -83,7 +83,7 @@ sub insert {
 
     for my $entry (@entries) {
         my $collapsed = $self->serialize( $entry );
-        my $id = delete $collapsed->{id};
+        my $id = $collapsed->{id};
 
         my $obj = $bucket->get( $id );
         $obj->data( $collapsed );
@@ -92,11 +92,25 @@ sub insert {
     }
 }
 
-sub get { }
+sub get {
+     my ($self, @ids) = @_;
+     return map {
+        $self->get_entry($_);    
+     } @ids; 
+}
 
-sub get_entry { }
+sub get_entry { 
+    my ($self, $id) = @_;
+    my $obj = $self->bucket->get($id);    
+    return undef unless $obj->exists;
+    return $self->deserialize($obj);
+}
 
-sub delete { }
+sub delete {
+    my ($self, $id) = @_;
+    
+    $self->bucket->delete_object( $id );    
+}
 
 sub simple_search { }
 
@@ -107,9 +121,14 @@ sub exists { }
 sub serialize { 
     my $self = shift;
        return $self->collapse_jspon(@_);
-    }
+}
 
-sub deserialize { }
+sub deserialize { 
+    my ($self,$doc, @args) = @_;;
+
+    $self->expand_jspon($doc, @args);
+    
+}
 
 =head1 NAME
 
