@@ -32,6 +32,12 @@ has [qw/host port bucket_name/] => (
     isa => 'Str'
 );
 
+
+has 'schema' => (
+    is => 'rw',
+    isa => 'Str'
+);
+
 has '_url' => (
     is  => 'rw',
     isa => 'Str'
@@ -60,7 +66,6 @@ sub _build_bucket {
     my $port = $self->port || 8091;
     my $bucket  = $self->bucket_name;
     my $options = $self->options;
-
     my $uri = 'http://' . $host . ':' . $port;
     $self->_url($uri);
     my $client = Net::Riak->new( host => $uri, %$options );
@@ -69,10 +74,35 @@ sub _build_bucket {
 
 }
 
+sub load_schema {
+
+	my ($self, %args) = @_;
+	require Module::Pluggable;
+	my $shorten = delete $args{shorten};
+	my $search_path = delete $args{search_path};
+	Module::Pluggable->import ( search_path => $search_path );
+	for my $module ($self->plugins ) {
+		eval "require $module";
+		croak $@ if $@; 
+		if ($shorten && $module =~ m/$search_path\:\:(.*?)$/ ) {
+			my $short_name = $1;
+
+			no strict 'refs';
+			*{ $short_name . "::" } = \*{ $module . "::" };
+			$short_name->meta->{kbr_schema_config} =
+			$module->meta->{kbr_schema_config};
+
+		}
+	}
+
+}
+
+
 sub BUILD {
     my ($self) = shift;
     $self->bucket;
 }
+
 
 sub clear {
     my $self = shift;
@@ -266,6 +296,10 @@ Searches using Solr interface to riak search. To search must prefix with data_ a
 =head2 BUILD
 
 Nothing to do about Nothing
+
+=head2 load_schema 
+
+Loads document schemas for quick use. Credited to authors of Mongoose library.
 
 =head1 AUTHOR
 
