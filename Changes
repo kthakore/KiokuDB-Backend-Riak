@@ -1,5 +1,6 @@
 Revision history for KiokuDB-Backend-Riak
 
-0.01    Date/time
-        First version, released on an unsuspecting world.
+0.01    Jan 7 2012
+    - Can get, update, delete and search results
+    - Made document schema loading work.
 
