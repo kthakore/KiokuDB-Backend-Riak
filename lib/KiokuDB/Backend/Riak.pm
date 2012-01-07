@@ -1,7 +1,7 @@
 package KiokuDB::Backend::Riak;
 
 BEGIN {
-    $KiokuDB::Backend::Riak::VERSION = '0.03';
+    $KiokuDB::Backend::Riak::VERSION = '0.01';
 }
 
 use Moose;
@@ -11,7 +11,6 @@ use Net::Riak;
 use JSON ();
 use LWP::Simple ();
 
-use WebService::Solr;
 use KiokuDB::Backend::Riak::Query;
 use Data::Stream::Bulk::Array ();
 
@@ -25,6 +24,7 @@ with qw(
   KiokuDB::Backend::Role::Scan
   KiokuDB::Backend::Role::Query::Simple
   KiokuDB::Backend::Role::Query
+  KiokuDB::Backend::Role::BinarySafe
 );
 
 has [qw/host port bucket_name/] => (
@@ -137,10 +137,13 @@ sub search {
 
     $url .= "?q=$q&wt=json";
 
-    foreach my $k ( keys %${args} )
+    if( $args && ref $args eq 'HASH' )
     {
-        my $v = $args->{$k};
-        $url .= '&'.$k.'='.$v;
+        foreach my $k ( keys %${args} )
+        {
+            my $v = $args->{$k};
+            $url .= '&'.$k.'='.$v;
+        }
     }
 
     if( $ENV{KBR_DEBUG} ) { warn 'DEBUG KiokuDB::Backend::Riak URL Search'. $url }
@@ -204,27 +207,65 @@ if you don't export anything, such as for a purely object-oriented module.
 
 =head2 exists
 
+Check if obj exists with given id 
+
 =head2 insert 
+
+Inserts OBJ
 
 =head2 clear 
 
+Clears all objects in bucket
+
 =head2 all_entries 
+
+Gets all entries
 
 =head2 get 
 
+Get array of entries
+
 =head2 get_entry  
+
+get specific entry
 
 =head2 delete 
 
+Deletes object
+
 =head2 serialize 
+
+Serializes to JSON
 
 =head2 deserialize
 
+Deserializes from JSON
+
 =head2 search 
+
+Searches using Solr interface to riak search. To search must prefix with data_ as KiokuDB stores data in there. Also nested objects must be seperated by '_'
+
+Note to enable search be sure to have bin/search-cmd. 
+
+Edit the etc/app.config
+
+            {riak_search, [                                                                                                                                                                             
+                %% To enable Search functionality set this 'true'.                                                                                                                           
+                                {enabled, true}                                                                                                                                                              
+                                               ]}
+
+Then ensure index on your bucket by doing
+
+bin/search-cmd install BUCKET 
+
 
 =head2 simple_search
 
+Searches using Solr interface to riak search. To search must prefix with data_ as KiokuDB stores data in there. Also nested objects must be seperated by '_'
+
 =head2 BUILD
+
+Nothing to do about Nothing
 
 =head1 AUTHOR
 
