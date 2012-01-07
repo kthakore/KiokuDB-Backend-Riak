@@ -34,5 +34,18 @@ ok( ! $d->lookup( $uuid )  );
 
 #$backend->clear();
 
+$backend->clear();
+$d->store( { test => 'stuff', foo => { b_ar => 'stt' } }  );
+$d->store( { test => 'stuff'}  );
+$d->store( { test => 'stuff12'}  );
+$d->store( { test => '123st12313'}  );
+
+$d->update;
+
+my @res = $d->search( { data_test => 'stuff', data_foo_b_ar => 'stt'  }, { inline => 'true' } )->all();
+
+is_deeply( $res[0], { test => 'stuff', foo => { b_ar => 'stt' } } );
+
+$backend->clear;
 
 done_testing;

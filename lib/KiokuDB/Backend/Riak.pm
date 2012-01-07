@@ -8,9 +8,15 @@ use Moose;
 use Data::Dumper;
 use Try::Tiny;
 use Net::Riak;
-use Data::Stream::Bulk::Callback ();
+use JSON ();
+use LWP::Simple ();
+
+use WebService::Solr;
+use KiokuDB::Backend::Riak::Query;
+use Data::Stream::Bulk::Array ();
 
 use namespace::clean -except => 'meta';
+
 
 with qw(
   KiokuDB::Backend
@@ -23,6 +29,11 @@ with qw(
 
 has [qw/host port bucket_name/] => (
     is  => 'ro',
+    isa => 'Str'
+);
+
+has '_url' => (
+    is  => 'rw',
     isa => 'Str'
 );
 
@@ -50,8 +61,9 @@ sub _build_bucket {
     my $bucket  = $self->bucket_name;
     my $options = $self->options;
 
-    my $client =
-      Net::Riak->new( host => 'http://' . $host . ':' . $port, %$options );
+    my $uri = 'http://' . $host . ':' . $port;
+    $self->_url($uri);
+    my $client = Net::Riak->new( host => $uri, %$options );
 
     return $client->bucket($bucket);
 
@@ -76,58 +88,88 @@ sub all_entries {
     return;
 }
 
-sub insert { 
-    my ($self, @entries) = @_;
+sub insert {
+    my ( $self, @entries ) = @_;
 
     my $bucket = $self->bucket;
 
     for my $entry (@entries) {
-        my $collapsed = $self->serialize( $entry );
-        my $id = $collapsed->{id};
+        my $collapsed = $self->serialize($entry);
+        my $id        = delete $collapsed->{id};
 
-        my $obj = $bucket->get( $id );
-        $obj->data( $collapsed );
-        $obj->store(); 
+        my $obj = $bucket->get($id);
+        $obj->data($collapsed);
+        $obj->store();
 
     }
 }
 
 sub get {
-     my ($self, @ids) = @_;
-     return map {
-        $self->get_entry($_);    
-     } @ids; 
+    my ( $self, @ids ) = @_;
+    return map { $self->get_entry($_); } @ids;
 }
 
-sub get_entry { 
-    my ($self, $id) = @_;
-    my $obj = $self->bucket->get($id);    
+sub get_entry {
+    my ( $self, $id ) = @_;
+    my $obj = $self->bucket->get($id);
     return undef unless $obj->exists;
     return $self->deserialize($obj);
 }
 
 sub delete {
-    my ($self, $id) = @_;
-    
-    $self->bucket->delete_object( $id );    
+    my ( $self, $id ) = @_;
+
+    $self->bucket->delete_object($id);
 }
 
-sub simple_search { }
+sub simple_search {
+    my ( $self, $proto, $args  ) = @_;
+    return $self->search($proto, $args);
+}
 
-sub search { }
+sub search {
+    my ( $self, $proto, $args ) = @_;
 
-sub exists { }
+    my $url = $self->_url;
+    $url .= '/solr/' . $self->bucket_name . '/select/';
+    
+    my $q = KiokuDB::Backend::Riak::Query->new($proto)->stringify;
 
-sub serialize { 
+    $url .= "?q=$q&wt=json";
+
+    foreach my $k ( keys %${args} )
+    {
+        my $v = $args->{$k};
+        $url .= '&'.$k.'='.$v;
+    }
+
+    if( $ENV{KBR_DEBUG} ) { warn 'DEBUG KiokuDB::Backend::Riak URL Search'. $url }
+
+    my $solr = LWP::Simple::get($url);
+
+    my $res = JSON::decode_json($solr);
+
+    my @objs = map { $self->deserialize( $_ ) } @{$res->{response}->{docs}};
+
+    return Data::Stream::Bulk::Array->new( array => \@objs );
+}
+
+sub exists {
+    my ( $self, @ids ) = @_;
+    my $bucket = $self->bucket;
+    return map { $bucket->get($_)->exists } @ids;
+}
+
+sub serialize {
     my $self = shift;
-       return $self->collapse_jspon(@_);
+    return $self->collapse_jspon(@_);
 }
 
-sub deserialize { 
-    my ($self,$doc, @args) = @_;;
+sub deserialize {
+    my ( $self, $doc, @args ) = @_;
 
-    $self->expand_jspon($doc, @args);
-    
+    $self->expand_jspon( $doc, @args );
+
 }
 
 =head1 NAME

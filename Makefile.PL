@@ -13,6 +13,8 @@ WriteMakefile(
     PL_FILES            => {},
     PREREQ_PM => {
         'Test::More' => 0,
+        'Net::Riak'  => 0,
+        'WebService::Solr::Query' => 0
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'KiokuDB-Backend-Riak-*' },
