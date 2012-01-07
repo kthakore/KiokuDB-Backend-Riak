@@ -30,7 +30,7 @@ is_deeply( $d->lookup( $uuid ), {test => 'crap' } );
 
 $d->delete( $uuid );
 
-is_deeply( $d->lookup( $uuid ), '' );
+ok( ! $d->lookup( $uuid )  );
 
 #$backend->clear();
 
