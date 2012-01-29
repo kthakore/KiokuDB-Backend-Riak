@@ -13,6 +13,7 @@ WriteMakefile(
     PL_FILES            => {},
     PREREQ_PM => {
         'Test::More' => 0,
+	'KiokuDB'    => 0,
         'Net::Riak'  => 0,
         'Try::Tiny'  => 0,
         'LWP::Simple' => 0,
