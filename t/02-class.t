@@ -43,10 +43,9 @@ isa_ok( $back->bar, 'Bar' );
 
 my $buuid = $d->object_to_id( $back->bar );
 
-
 my @res = $d->search( { 'data_bar_$ref' => $buuid.'*' } )->all;
 
-is_deeply( $res[0], $foo );
+is_deeply( $res[0], $foo, 'Test for class searching' );
 
 $backend->clear;
 

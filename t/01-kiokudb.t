@@ -44,7 +44,7 @@ $d->update;
 
 my @res = $d->search( { data_test => 'stuff', data_foo_b_ar => 'stt'  }, { inline => 'true' } )->all();
 
-is_deeply( $res[0], { test => 'stuff', foo => { b_ar => 'stt' } } );
+is_deeply( $res[0], { test => 'stuff', foo => { b_ar => 'stt' } }, 'Tests for search' );
 
 $backend->clear;
 

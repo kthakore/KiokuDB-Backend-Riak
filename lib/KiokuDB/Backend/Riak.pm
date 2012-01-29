@@ -62,8 +62,8 @@ has '+class_meta_field' => ( default => 'class_meta' );
 
 sub _build_bucket {
     my ($self) = @_;
-    my $host = $self->host || 'localhost';
-    my $port = $self->port || 8091;
+    my $host = $self->host || $ENV{KRB_HOST} || 'localhost';
+    my $port = $self->port || $ENV{KRB_PORT} || 8098;
     my $bucket  = $self->bucket_name;
     my $options = $self->options;
     my $uri = 'http://' . $host . ':' . $port;
