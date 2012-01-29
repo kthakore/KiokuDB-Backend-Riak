@@ -7,6 +7,7 @@ BEGIN {
 use Moose;
 use Data::Dumper;
 use Try::Tiny;
+use lib 'lib';
 use Net::Riak;
 use JSON ();
 use LWP::Simple ();
@@ -70,6 +71,8 @@ sub _build_bucket {
     $self->_url($uri);
     my $client = Net::Riak->new( host => $uri, %$options );
 
+	$self->enable_search(); 
+
     return $client->bucket($bucket);
 
 }
@@ -83,7 +86,7 @@ sub load_schema {
 	Module::Pluggable->import ( search_path => $search_path );
 	for my $module ($self->plugins ) {
 		eval "require $module";
-		croak $@ if $@; 
+		croak $@ if $@; `
 		if ($shorten && $module =~ m/$search_path\:\:(.*?)$/ ) {
 			my $short_name = $1;
 
@@ -95,6 +98,15 @@ sub load_schema {
 		}
 	}
 
+}
+
+sub enable_search {
+    my $self = shift;
+    my $bucket = $self->bucket;
+
+    my $props = $bucket->get_properties(); 
+    $props->{precommit} = [{"mod"=>"riak_search_kv_hook","fun"=>"precommit"}];
+    $bucket->set_properties( $props );
 }
 
 
