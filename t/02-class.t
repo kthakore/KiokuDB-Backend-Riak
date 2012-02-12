@@ -20,7 +20,7 @@ use KiokuDB;
 use KiokuDB::Backend::Riak;
 
 my $backend = KiokuDB::Backend::Riak->new( 
-            bucket_name => 'kbr_test' 
+            bucket_name => 'kbr_test'.rand() 
         ); 
 my $d = KiokuDB->new(
         backend => $backend 

@@ -65,15 +65,31 @@ sub _build_bucket {
     my ($self) = @_;
     my $host = $self->host || $ENV{KRB_HOST} || 'localhost';
     my $port = $self->port || $ENV{KRB_PORT} || 8098;
-    my $bucket  = $self->bucket_name;
+    my $buck_name  = $self->bucket_name;
     my $options = $self->options;
     my $uri = 'http://' . $host . ':' . $port;
     $self->_url($uri);
     my $client = Net::Riak->new( host => $uri, %$options );
+     
+    my $bucket = $client->bucket($buck_name);
 
-	$self->enable_search(); 
+    # Hook in kv_search into the precommit so that we can start indexing. Custom indexes will have to be set elsewhere
 
-    return $client->bucket($bucket);
+     #bucket doesn't exist in riak unless it has object in it. Can't enable search on empty bucket. So touching the bucket
+    my $touch = $bucket->new_object( 'touch',  { 'KiokuDB-Backend-Riak' => 'Initialized' } );
+
+    my $props = $bucket->get_property('precommit'); 
+
+    unless( ref $props eq 'ARRAY' && $#{$props} > 0 )
+    {
+      $props = [{"mod"=>"riak_search_kv_hook","fun"=>"precommit"}];
+      $bucket->set_property( 'precommit', $props );
+
+
+    }
+    
+
+    return $bucket;
 
 }
 
@@ -86,7 +102,7 @@ sub load_schema {
 	Module::Pluggable->import ( search_path => $search_path );
 	for my $module ($self->plugins ) {
 		eval "require $module";
-		croak $@ if $@; `
+		croak $@ if $@; 
 		if ($shorten && $module =~ m/$search_path\:\:(.*?)$/ ) {
 			my $short_name = $1;
 
@@ -99,16 +115,6 @@ sub load_schema {
 	}
 
 }
-
-sub enable_search {
-    my $self = shift;
-    my $bucket = $self->bucket;
-
-    my $props = $bucket->get_properties(); 
-    $props->{precommit} = [{"mod"=>"riak_search_kv_hook","fun"=>"precommit"}];
-    $bucket->set_properties( $props );
-}
-
 
 sub BUILD {
     my ($self) = shift;
