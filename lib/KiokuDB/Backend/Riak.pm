@@ -13,6 +13,7 @@ use JSON ();
 use LWP::Simple ();
 
 use KiokuDB::Backend::Riak::Query;
+use KiokuDB::Backend::Serialize::JSPON::Collapser;
 use Data::Stream::Bulk::Array ();
 
 use namespace::clean -except => 'meta';
@@ -20,7 +21,7 @@ use namespace::clean -except => 'meta';
 
 with qw(
   KiokuDB::Backend
-  KiokuDB::Backend::Serialize::JSPON
+  KiokuDB::Backend::Serialize::JSON
   KiokuDB::Backend::Role::Clear
   KiokuDB::Backend::Role::Scan
   KiokuDB::Backend::Role::Query::Simple
@@ -139,9 +140,13 @@ sub insert {
     my ( $self, @entries ) = @_;
 
     my $bucket = $self->bucket;
+    my $c = KiokuDB::Backend::Serialize::JSPON::Collapser->new(
+        id_field => "id",
+    );
 
     for my $entry (@entries) {
-        my $collapsed = $self->serialize($entry);
+        my $collapsed = $c->collapse_jspon($entry);;
+
         my $id        = delete $collapsed->{id};
 
         my $obj = $bucket->get($id);
@@ -158,9 +163,23 @@ sub get {
 
 sub get_entry {
     my ( $self, $id ) = @_;
-    my $obj = $self->bucket->get($id);
-    return undef unless $obj->exists;
-    return $self->deserialize($obj);
+    my $url = $self->_url;
+       $url .= '/riak/'.$self->bucket_name.'/'.$id;
+    my $obj = LWP::Simple::get($url);
+
+    return undef unless $obj;
+    my $d = $self->deserialize($obj);
+    return $d;
+    
+}
+
+sub get_entry_raw {
+    my ( $self, $id ) = @_;
+    my $url = $self->_url;
+       $url .= '/riak/'.$self->bucket_name.'/'.$id;
+    my $obj = LWP::Simple::get($url);
+    return '{ }' unless $obj;
+    return $obj;   
 }
 
 sub delete {
@@ -199,7 +218,7 @@ sub search {
 
     my $res = JSON::decode_json($solr);
 
-    my @objs = map { $self->deserialize( $_ ) } @{$res->{response}->{docs}};
+    my @objs = map { $self->deserialize( JSON::encode_json($_) ) } @{$res->{response}->{docs}};
 
     return Data::Stream::Bulk::Array->new( array => \@objs );
 }
@@ -242,15 +261,10 @@ sub exists {
 
 sub serialize {
     my $self = shift;
-    return $self->collapse_jspon(@_);
+    return $self->collapse_json(@_);
 }
 
-sub deserialize {
-    my ( $self, $doc, @args ) = @_;
 
-    $self->expand_jspon( $doc, @args );
-
-}
 
 =head1 NAME
 
@@ -306,6 +320,10 @@ Get array of entries
 
 get specific entry
 
+=head2 get_entry_raw
+
+get specific entry raw
+
 =head2 delete 
 
 Deletes object
@@ -335,6 +353,9 @@ Then ensure index on your bucket by doing
 
 bin/search-cmd install BUCKET 
 
+=head2 search_raw
+
+search results in raw json
 
 =head2 simple_search
 

@@ -34,7 +34,6 @@ my $foo = Foo->new( name => 'Stuff' );
 my $uuid = $d->store( $foo );
 
 $d->update();
-
 my $back = $d->lookup( $uuid );
 
 isa_ok( $back, 'Foo' );
