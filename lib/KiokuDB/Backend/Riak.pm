@@ -204,6 +204,36 @@ sub search {
     return Data::Stream::Bulk::Array->new( array => \@objs );
 }
 
+
+sub search_raw {
+    my ( $self, $proto, $args ) = @_;
+
+    my $url = $self->_url;
+    $url .= '/solr/' . $self->bucket_name . '/select/';
+    
+    my $q = KiokuDB::Backend::Riak::Query->new($proto)->stringify;
+
+    $url .= "?q=$q&wt=json";
+
+    if( $args && ref $args eq 'HASH' )
+    {
+        foreach my $k ( keys %${args} )
+        {
+            my $v = $args->{$k};
+            $url .= '&'.$k.'='.$v;
+        }
+    }
+
+    if( $ENV{KBR_DEBUG} ) { warn 'DEBUG KiokuDB::Backend::Riak URL Search'. $url }
+
+    my $solr = LWP::Simple::get($url);
+
+    return $solr
+
+
+}
+
+
 sub exists {
     my ( $self, @ids ) = @_;
     my $bucket = $self->bucket;
