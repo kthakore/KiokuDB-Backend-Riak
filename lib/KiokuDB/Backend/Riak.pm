@@ -94,7 +94,6 @@ sub _build_bucket {
 }
 
 sub load_schema {
-
 	my ($self, %args) = @_;
 	require Module::Pluggable;
 	my $shorten = delete $args{shorten};
