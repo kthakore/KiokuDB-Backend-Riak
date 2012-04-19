@@ -14,6 +14,8 @@ use LWP::Simple ();
 
 use KiokuDB::Backend::Riak::Query;
 use KiokuDB::Backend::Serialize::JSPON::Collapser;
+use KiokuDB::Backend::Serialize::JSPON::Expander;
+
 use Data::Stream::Bulk::Array ();
 
 use namespace::clean -except => 'meta';
@@ -169,7 +171,11 @@ sub get_entry {
 
     return undef unless $obj;
     my $d = $self->deserialize($obj);
-    return $d;
+       $d->{id} = $id;
+    my $c = KiokuDB::Backend::Serialize::JSPON::Expander->new( 
+        id => 'id'
+    );
+    return $c->expand_jspon( $d );
     
 }
 
