@@ -207,7 +207,7 @@ sub search {
     
     my $q = KiokuDB::Backend::Riak::Query->new($proto)->stringify;
 
-    $url .= "?q=$q&wt=json";
+    $url .= "?q=$q&wt=json&json.nl=map";
 
     if( $args && ref $args eq 'HASH' )
     {
@@ -258,6 +258,33 @@ sub search_raw {
 
 }
 
+sub search_raw_solr {
+    my ( $self, $proto, $args ) = @_;
+
+    my $url = $self->_url;
+    $url .= '/solr/' . $self->bucket_name . '/select/';
+    
+    my $q = $proto;
+
+    $url .= "?q=$q&wt=json";
+
+    if( $args && ref $args eq 'HASH' )
+    {
+        foreach my $k ( keys %${args} )
+        {
+            my $v = $args->{$k};
+            $url .= '&'.$k.'='.$v;
+        }
+    }
+
+    if( $ENV{KBR_DEBUG} ) { warn 'DEBUG KiokuDB::Backend::Riak URL Search'. $url }
+
+    my $solr = LWP::Simple::get($url);
+
+    return $solr
+
+
+}
 
 sub exists {
     my ( $self, @ids ) = @_;
